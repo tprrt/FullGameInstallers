@@ -48,9 +48,29 @@ The installation scripts support various command line flags to customise your in
 --desktop-shortcut: Action to take when installing a desktop shortcut.. Can be one of: 'install', 'prompt' and 'skip' (default: 'prompt')
 -e, --unrealed, --no-unrealed: Install UnrealEd (Windows, umu-launcher recommended). (off by default)
 -k, --keep-installer-files, --no-keep-installer-files: Keep ISO and Patch files. (off by default)
+--uninstall, --no-uninstall: Remove a previous installation instead of installing. (off by default)
+--remove-user-data, --no-remove-user-data: With --uninstall, also remove saves and configuration. (off by default)
+--yes, --no-yes: With --uninstall, do not ask for confirmation. (off by default)
 -h, --help: Prints help
 -v, --version: Prints version
 ```
+
+## Uninstall
+
+Run the install script of the title with `--uninstall`, and the same `--destination` if you used one:
+
+```
+./install-title.sh --uninstall
+```
+
+The installer records what it creates in `<destination>/.oldunreal-install`. The uninstall lists what it is going to remove, and asks before doing it. It removes:
+  - the application menu entry, the desktop shortcut, and the icons created by the installer;
+  - the UnrealEd launch script and its Wine prefix (`.wine-unrealed`), if installed;
+  - the destination folder, only if the installer created it. If you installed into a folder that already existed (a Steam install for example), the game files are left in place.
+
+Saves and configuration are kept. Use `--remove-user-data` to remove them too (only UT2004 is supported, its folder is `~/.ut2004`; for the other titles the uninstall doesn't know where they are stored, and the option does nothing). Without a terminal to answer on, nothing is removed unless `--yes` is given.
+
+Installations made before the manifest existed have none. For these, the uninstall only removes the menu entries and shortcuts that start the installation, and the default folder (`~/.local/share/OldUnreal/TitleName`) if it holds the game.
 
 ## Dependencies
 
