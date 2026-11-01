@@ -8,6 +8,9 @@ local INSTALLER_FOLDER_MARKER_FILENAME=".oldunreal-installer"
 # shellcheck disable=SC2034 # Used in some installers
 local IS_DESTINATION_CASE_SENSITIVE_FS=""
 
+# Set when the destination folder did not exist, and was created by this installer
+local DESTINATION_CREATED_BY_INSTALLER="no"
+
 step::check_destination() {
   term::step::new "Checking Destination Folder"
 
@@ -25,6 +28,8 @@ step::check_destination() {
       term::step::failed_with_error "User does not have permission to create destination folder. Aborting installation."
       return 77 #E_PERM
     }
+
+    DESTINATION_CREATED_BY_INSTALLER="yes"
   fi
 
   _arg_destination="$(realpath "${_arg_destination}")"

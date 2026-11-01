@@ -184,6 +184,7 @@ installer::entrypoint() {
 
   # Import Library files
   # @include lib/common.sh
+  # @include lib/manifest.sh
   # @include lib/architecture.sh
   # @include lib/downloader.sh
   # @include lib/unarchiver.sh
@@ -233,7 +234,9 @@ installer::entrypoint() {
   step::check_dependencies
 
   # @include steps/check_destination.sh
+  # @include steps/write_manifest.sh
   step::check_destination
+  step::write_manifest
 
   # @include steps/eula.sh
   step::eula
@@ -284,6 +287,8 @@ installer::entrypoint() {
     "${PRODUCT_SHORTNAME}.desktop" \
     "UnrealEd-${PRODUCT_SHORTNAME}.desktop" \
     "${_arg_desktop_shortcut}"
+
+  step::write_manifest
 
   # @include steps/notify_install_finished.sh
   step::notify_install_finished
