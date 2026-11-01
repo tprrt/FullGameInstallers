@@ -167,6 +167,8 @@ __step::xdg_desktop_entry::create() {
     echo "Categories=Game;"
   } >"${DESKTOP_ENTRY_PATH}"
 
+  manifest::record file "${DESKTOP_ENTRY_PATH}"
+
   __step::xdg_desktop_entry::mark_trusted "${DESKTOP_ENTRY_PATH}"
 }
 
@@ -202,6 +204,8 @@ __step::xdg_desktop_entry::unrealed::create() {
     echo "Type=Application"
     echo "Categories=Game;"
   } >"${DESKTOP_ENTRY_PATH}"
+
+  manifest::record file "${DESKTOP_ENTRY_PATH}"
 
   __step::xdg_desktop_entry::mark_trusted "${DESKTOP_ENTRY_PATH}"
 }
@@ -277,6 +281,7 @@ __step::xdg_desktop_entry::get_icon_name() {
 
         mkdir -p "${XDG_UNREAL_ICONS_PATH}/48x48/apps"
         magick -quiet "${ICON_PATH}[${ICON_INDEX}]" "${XDG_UNREAL_ICONS_PATH}/48x48/apps/${TARGET_ICON_NAME}.png" >/dev/null
+        manifest::record file "${XDG_UNREAL_ICONS_PATH}/48x48/apps/${TARGET_ICON_NAME}.png"
 
         STEP_XDG_DESKTOP_ENTRY_ICONS[${ICON_PATH}]="${TARGET_ICON_NAME}"
         ;;
@@ -288,6 +293,7 @@ __step::xdg_desktop_entry::get_icon_name() {
 
         mkdir -p "${XDG_UNREAL_ICONS_PATH}/32x32/apps"
         magick -quiet "${ICON_PATH}[${ICON_INDEX}]" "${XDG_UNREAL_ICONS_PATH}/32x32/apps/${TARGET_ICON_NAME}.png" >/dev/null
+        manifest::record file "${XDG_UNREAL_ICONS_PATH}/32x32/apps/${TARGET_ICON_NAME}.png"
 
         STEP_XDG_DESKTOP_ENTRY_ICONS[${ICON_PATH}]="${TARGET_ICON_NAME}"
         ;;

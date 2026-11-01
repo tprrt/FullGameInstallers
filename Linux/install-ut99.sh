@@ -2718,11 +2718,13 @@ You may read the Terms of Service at this URL:
     local UNREALED_LAUNCH_SCRIPT_PATH="${_arg_destination%/}/System${UEED_SYSTEM_FOLDER_SUFFIX:-}/UnrealEd-launch-linux.sh"
 
     mkdir -p "${UNREALED_WINE_PREFIX_PATH}"
+    manifest::record dir "${UNREALED_WINE_PREFIX_PATH}"
 
     step::create_unrealed_launcher::write "${UNREALED_LAUNCH_SCRIPT_PATH}" || {
       term::step::failed_with_error "Failed to create UnrealEd launch script. Installation aborted."
       return 1
     }
+    manifest::record file "${UNREALED_LAUNCH_SCRIPT_PATH}"
     chmod +x "${UNREALED_LAUNCH_SCRIPT_PATH}" || {
       term::step::failed_with_error "Failed to set UnrealEd launch script as executable. Installation aborted."
       return 1
@@ -3194,6 +3196,8 @@ EOFLAUNCHER
       echo "Categories=Game;"
     } >"${DESKTOP_ENTRY_PATH}"
 
+    manifest::record file "${DESKTOP_ENTRY_PATH}"
+
     __step::xdg_desktop_entry::mark_trusted "${DESKTOP_ENTRY_PATH}"
   }
 
@@ -3229,6 +3233,8 @@ EOFLAUNCHER
       echo "Type=Application"
       echo "Categories=Game;"
     } >"${DESKTOP_ENTRY_PATH}"
+
+    manifest::record file "${DESKTOP_ENTRY_PATH}"
 
     __step::xdg_desktop_entry::mark_trusted "${DESKTOP_ENTRY_PATH}"
   }
@@ -3304,6 +3310,7 @@ EOFLAUNCHER
 
           mkdir -p "${XDG_UNREAL_ICONS_PATH}/48x48/apps"
           magick -quiet "${ICON_PATH}[${ICON_INDEX}]" "${XDG_UNREAL_ICONS_PATH}/48x48/apps/${TARGET_ICON_NAME}.png" >/dev/null
+          manifest::record file "${XDG_UNREAL_ICONS_PATH}/48x48/apps/${TARGET_ICON_NAME}.png"
 
           STEP_XDG_DESKTOP_ENTRY_ICONS[${ICON_PATH}]="${TARGET_ICON_NAME}"
           ;;
@@ -3315,6 +3322,7 @@ EOFLAUNCHER
 
           mkdir -p "${XDG_UNREAL_ICONS_PATH}/32x32/apps"
           magick -quiet "${ICON_PATH}[${ICON_INDEX}]" "${XDG_UNREAL_ICONS_PATH}/32x32/apps/${TARGET_ICON_NAME}.png" >/dev/null
+          manifest::record file "${XDG_UNREAL_ICONS_PATH}/32x32/apps/${TARGET_ICON_NAME}.png"
 
           STEP_XDG_DESKTOP_ENTRY_ICONS[${ICON_PATH}]="${TARGET_ICON_NAME}"
           ;;
