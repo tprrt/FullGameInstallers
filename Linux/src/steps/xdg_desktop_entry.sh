@@ -138,7 +138,7 @@ __step::xdg_desktop_entry::create() {
   fi
 
   local GAME_BINARY_ESCAPED
-  GAME_BINARY_ESCAPED=$(__step::xdg_desktop_entry::escape_exec_argument "${_arg_destination%/}/System${UE_SYSTEM_FOLDER_SUFFIX:-}/${MAIN_BINARY_NAME}${ARCHITECTURE_BINARY_SUFFIX}")
+  GAME_BINARY_ESCAPED=$(xdgdirs::escape_exec_argument "${_arg_destination%/}/System${UE_SYSTEM_FOLDER_SUFFIX:-}/${MAIN_BINARY_NAME}${ARCHITECTURE_BINARY_SUFFIX}")
 
   {
     echo "[Desktop Entry]"
@@ -191,7 +191,7 @@ __step::xdg_desktop_entry::unrealed::create() {
   fi
 
   local LAUNCHER_ESCAPED
-  LAUNCHER_ESCAPED=$(__step::xdg_desktop_entry::escape_exec_argument "${_arg_destination%/}/System${UEED_SYSTEM_FOLDER_SUFFIX:-}/UnrealEd-launch-linux.sh")
+  LAUNCHER_ESCAPED=$(xdgdirs::escape_exec_argument "${_arg_destination%/}/System${UEED_SYSTEM_FOLDER_SUFFIX:-}/UnrealEd-launch-linux.sh")
 
   {
     echo "[Desktop Entry]"
@@ -208,21 +208,6 @@ __step::xdg_desktop_entry::unrealed::create() {
   manifest::record file "${DESKTOP_ENTRY_PATH}"
 
   __step::xdg_desktop_entry::mark_trusted "${DESKTOP_ENTRY_PATH}"
-}
-
-# Escapes a path to be used as a quoted argument of the Exec key. Within double quotes, the Desktop Entry
-# specification requires a backslash before the characters '"', '`', '$' and '\\', and the backslash of the
-# string value itself must be doubled on top of that. '%' introduces a field code, and is doubled.
-__step::xdg_desktop_entry::escape_exec_argument() {
-  local VALUE="${1:-}"
-
-  VALUE="${VALUE//\\/\\\\\\\\}"
-  VALUE="${VALUE//\"/\\\\\"}"
-  VALUE="${VALUE//\`/\\\\\`}"
-  VALUE="${VALUE//\$/\\\\\$}"
-  VALUE="${VALUE//%/%%}"
-
-  printf '%s' "${VALUE}"
 }
 
 # Desktop environments (KDE, GNOME) refuse to launch .desktop files on the desktop unless they are executable/trusted

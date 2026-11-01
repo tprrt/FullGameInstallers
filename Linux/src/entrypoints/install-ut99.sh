@@ -12,6 +12,9 @@
 # ARG_TYPE_GROUP_SET([entryhandlingmode],[ACTION],[application-entry,desktop-shortcut],[install,prompt,skip])
 # ARG_OPTIONAL_BOOLEAN([unrealed],[e],[Install UnrealEd (Windows, umu-launcher recommended).],[])
 # ARG_OPTIONAL_BOOLEAN([keep-installer-files],[k],[Keep ISO and Patch files.],[])
+# ARG_OPTIONAL_BOOLEAN([uninstall],[],[Remove a previous installation instead of installing.],[])
+# ARG_OPTIONAL_BOOLEAN([remove-user-data],[],[With --uninstall, also remove saves and configuration.],[])
+# ARG_OPTIONAL_BOOLEAN([yes],[],[With --uninstall, do not ask for confirmation.],[])
 # ARG_HELP([Install Unreal Tournament: GOTY])
 # ARG_VERSION_AUTO([1.3.2],['OldUnreal <https://oldunreal.com>'])
 # DEFINE_SCRIPT_DIR([_SCRIPT_DIR])
@@ -59,16 +62,22 @@ _arg_application_entry="prompt"
 _arg_desktop_shortcut="prompt"
 _arg_unrealed="off"
 _arg_keep_installer_files="off"
+_arg_uninstall="off"
+_arg_remove_user_data="off"
+_arg_yes="off"
 
 print_help() {
   printf '%s\n' "Install Unreal Tournament: GOTY"
-  printf 'Usage: %s [-d|--destination <arg>] [--ui-mode <MODE>] [--application-entry <ACTION>] [--desktop-shortcut <ACTION>] [-e|--(no-)unrealed] [-k|--(no-)keep-installer-files] [-h|--help] [-v|--version]\n' "$0"
+  printf 'Usage: %s [-d|--destination <arg>] [--ui-mode <MODE>] [--application-entry <ACTION>] [--desktop-shortcut <ACTION>] [-e|--(no-)unrealed] [-k|--(no-)keep-installer-files] [--(no-)uninstall] [--(no-)remove-user-data] [--(no-)yes] [-h|--help] [-v|--version]\n' "$0"
   printf '\t%s\n' "-d, --destination: Install directory. Will be created if it doesn't exist. (default: '${XDG_DATA_HOME:-${HOME}/.local/share}/OldUnreal/UnrealTournament')"
   printf '\t%s\n' "--ui-mode: UI library to use during install.. Can be one of: 'auto', 'kdialog', 'zenity' and 'none' (default: 'auto')"
   printf '\t%s\n' "--application-entry: Action to take when installing the XDG Application Entry.. Can be one of: 'install', 'prompt' and 'skip' (default: 'prompt')"
   printf '\t%s\n' "--desktop-shortcut: Action to take when installing a desktop shortcut.. Can be one of: 'install', 'prompt' and 'skip' (default: 'prompt')"
   printf '\t%s\n' "-e, --unrealed, --no-unrealed: Install UnrealEd (Windows, umu-launcher recommended). (off by default)"
   printf '\t%s\n' "-k, --keep-installer-files, --no-keep-installer-files: Keep ISO and Patch files. (off by default)"
+  printf '\t%s\n' "--uninstall, --no-uninstall: Remove a previous installation instead of installing. (off by default)"
+  printf '\t%s\n' "--remove-user-data, --no-remove-user-data: With --uninstall, also remove saves and configuration. (off by default)"
+  printf '\t%s\n' "--yes, --no-yes: With --uninstall, do not ask for confirmation. (off by default)"
   printf '\t%s\n' "-h, --help: Prints help"
   printf '\t%s\n' "-v, --version: Prints version"
 }
@@ -135,6 +144,18 @@ parse_commandline() {
         { begins_with_short_option "$_next" && shift && set -- "-k" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
       fi
       ;;
+    --no-uninstall | --uninstall)
+      _arg_uninstall="on"
+      test "${1:0:5}" = "--no-" && _arg_uninstall="off"
+      ;;
+    --no-remove-user-data | --remove-user-data)
+      _arg_remove_user_data="on"
+      test "${1:0:5}" = "--no-" && _arg_remove_user_data="off"
+      ;;
+    --no-yes | --yes)
+      _arg_yes="on"
+      test "${1:0:5}" = "--no-" && _arg_yes="off"
+      ;;
     -h | --help)
       print_help
       exit 0
@@ -181,6 +202,8 @@ installer::entrypoint() {
   local PRODUCT_KEYWORDS=("UT" "UT99" "Unreal Tournament 1999")
   local PRODUCT_URLSCHEME="unreal"
   local MAIN_BINARY_NAME="ut-bin"
+  # Folders holding the saves and the configuration, removed by --uninstall --remove-user-data
+  local PRODUCT_USER_DATA_DIRS=()
 
   # Import Library files
   # @include lib/common.sh
@@ -188,6 +211,13 @@ installer::entrypoint() {
   # @include lib/architecture.sh
   # @include lib/downloader.sh
   # @include lib/unarchiver.sh
+
+  # Uninstall Mode
+  # @include steps/uninstall.sh
+  if [[ "${_arg_uninstall}" == "on" ]]; then
+    step::uninstall
+    return 0
+  fi
 
   # Patch Metadata Download Step
   local PATCH_METADATA_URL="https://api.github.com/repos/OldUnreal/UnrealTournamentPatches/releases/latest"

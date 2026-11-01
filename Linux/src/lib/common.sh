@@ -300,6 +300,21 @@ xdgdirs::get_user_dir() {
   fi
 }
 
+# Escapes a path to be used as a quoted argument of the Exec key. Within double quotes, the Desktop Entry
+# specification requires a backslash before the characters '"', '`', '$' and '\\', and the backslash of the
+# string value itself must be doubled on top of that. '%' introduces a field code, and is doubled.
+xdgdirs::escape_exec_argument() {
+  local VALUE="${1:-}"
+
+  VALUE="${VALUE//\\/\\\\\\\\}"
+  VALUE="${VALUE//\"/\\\\\"}"
+  VALUE="${VALUE//\`/\\\\\`}"
+  VALUE="${VALUE//\$/\\\\\$}"
+  VALUE="${VALUE//%/%%}"
+
+  printf '%s' "${VALUE}"
+}
+
 helper::progress::run_with_progress() {
   local LAST_UPDATE=""
 
