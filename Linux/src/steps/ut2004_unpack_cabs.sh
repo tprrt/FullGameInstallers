@@ -59,20 +59,13 @@ step::ut2004_unpack_cabs() {
     }
   fi
 
-  local KDIALOG_DBUS_ADDRESS=()
-
-  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-    read -ra KDIALOG_DBUS_ADDRESS < <(kdialog --title "${CURRENT_STEP_NAME}" --progressbar "Unpacking install CABs..." 0 2>/dev/null)
-    busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "showCancelButton" b "false" 2>/dev/null || true
-  fi
+  term::progress_dialog::open "Unpacking install CABs..."
 
   helper::progress::make_consistant __step::ut2004_unpack_cabs::run "${CABS_PATH}/data1.cab" "${TARGET_PATH}" | while IFS= read -r UNPACK_PROGRESS; do
     if [[ -z "${UNPACK_PROGRESS}" ]]; then
       term::step::progress "" >&6
 
-      if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-        busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i 0 2>/dev/null || true
-      fi
+      term::progress_dialog::pulse || true
       continue
     fi
 
@@ -87,34 +80,15 @@ step::ut2004_unpack_cabs() {
 
     local DIALOG_TEXT="Unpacking ${FILE_NAME} (${CURRENT_FILE_INDEX} of ${TOTAL_FILES})"
 
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      local ESCAPED_DIALOG_TEXT
-      ESCAPED_DIALOG_TEXT="$(echo -e "${DIALOG_TEXT}")"
-      busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i "${TOTAL_FILES}" 2>/dev/null || true
-      busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "value" i "${CURRENT_FILE_INDEX}" 2>/dev/null || true
-      busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "setLabelText" s "${ESCAPED_DIALOG_TEXT}" 2>/dev/null || true
-    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      echo "${PERCENT}"
-      echo "# ${DIALOG_TEXT}"
-    fi
-  done | {
-    if [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      zenity --progress --percentage=0 --text="Unpacking install CABs..." --no-cancel --time-remaining --auto-close 2>/dev/null
-    else
-      cat - >/dev/null
-    fi
-  } || {
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
-    fi
+    term::progress_dialog::update "${DIALOG_TEXT}" "${PERCENT}" "${TOTAL_FILES}" "${CURRENT_FILE_INDEX}" || true
+  done | term::progress_dialog::sink "Unpacking install CABs..." --percentage=0 --no-cancel --time-remaining || {
+    term::progress_dialog::close
 
     term::step::failed_with_error "Failed to unpack CABs. Installation aborted."
     return 1
   }
 
-  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-    busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
-  fi
+  term::progress_dialog::close
 
   rm -rf "${CABS_PATH}" &>/dev/null || {
     term::step::failed_with_error "User does not have permission to remove temporary staging folder for CABs. Aborting installation."
