@@ -3016,20 +3016,13 @@ You may read the Terms of Service at this URL:
   step::unpack_uz_maps() {
     term::step::new "Unpack Maps"
 
-    local KDIALOG_DBUS_ADDRESS=()
-
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      read -ra KDIALOG_DBUS_ADDRESS < <(kdialog --title "${CURRENT_STEP_NAME}" --progressbar "Unpacking maps..." 0 2>/dev/null)
-      busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "showCancelButton" b "false" 2>/dev/null || true
-    fi
+    term::progress_dialog::open "Unpacking maps..."
 
     helper::progress::make_consistant __step::unpack_uz_maps::run | while IFS= read -r UNPACK_PROGRESS; do
       if [[ -z "${UNPACK_PROGRESS}" ]]; then
         term::step::progress "" >&6
 
-        if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-          busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i 0 2>/dev/null || true
-        fi
+        term::progress_dialog::pulse || true
         continue
       fi
 
@@ -3044,34 +3037,15 @@ You may read the Terms of Service at this URL:
 
       local DIALOG_TEXT="Unpacking ${MAP_NAME} (${CURRENT_FILE_INDEX} of ${TOTAL_FILES})"
 
-      if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-        local ESCAPED_DIALOG_TEXT
-        ESCAPED_DIALOG_TEXT="$(echo -e "${DIALOG_TEXT}")"
-        busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i "${TOTAL_FILES}" 2>/dev/null || true
-        busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "value" i "${CURRENT_FILE_INDEX}" 2>/dev/null || true
-        busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "setLabelText" s "${ESCAPED_DIALOG_TEXT}" 2>/dev/null || true
-      elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-        echo "${PERCENT}"
-        echo "# ${DIALOG_TEXT}"
-      fi
-    done | {
-      if [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-        zenity --progress --percentage=0 --text="Unpacking maps..." --no-cancel --time-remaining --auto-close 2>/dev/null
-      else
-        cat - >/dev/null
-      fi
-    } || {
-      if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-        busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
-      fi
+      term::progress_dialog::update "${DIALOG_TEXT}" "${PERCENT}" "${TOTAL_FILES}" "${CURRENT_FILE_INDEX}" || true
+    done | term::progress_dialog::sink "Unpacking maps..." --percentage=0 --no-cancel --time-remaining || {
+      term::progress_dialog::close
 
       term::step::failed_with_error "Failed to unpack all maps. Installation aborted."
       return 1
     }
 
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
-    fi
+    term::progress_dialog::close
 
     term::step::complete
   }
