@@ -433,22 +433,15 @@ __downloader::transfer_file() {
 
   local DOWNLOAD_PROGRESS
 
-  local KDIALOG_DBUS_ADDRESS=()
-
   # With kdialog, the progress dialog no longer being reachable on D-Bus means the user closed it,
   # which is handled the same way as cancelling it
-  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-    read -ra KDIALOG_DBUS_ADDRESS < <(kdialog --title "${CURRENT_STEP_NAME}" --progressbar "Starting download..." 0 2>/dev/null)
-  fi
+  term::progress_dialog::open "Starting download..." cancellable
 
   helper::progress::make_consistant __downloader::download_file_with_progress "${DOWNLOAD_URL}" "${DOWNLOAD_PATH}" | while IFS= read -r DOWNLOAD_PROGRESS; do
     if [[ -z "${DOWNLOAD_PROGRESS}" ]]; then
       term::step::progress "Starting..." >&6
 
-      if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-        busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "setLabelText" s "Starting Download..." 2>/dev/null || exit "${DOWNLOADER_CANCELLED_STATUS}"
-        busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i 0 2>/dev/null || exit "${DOWNLOADER_CANCELLED_STATUS}"
-      fi
+      term::progress_dialog::pulse "Starting Download..." || exit "${DOWNLOADER_CANCELLED_STATUS}"
       continue
     fi
 
@@ -471,38 +464,17 @@ __downloader::transfer_file() {
 
     DIALOG_TEXT="${DIALOG_TEXT}\nSpeed : ${SPEED}/s"
 
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      local ESCAPED_DIALOG_TEXT
-      ESCAPED_DIALOG_TEXT="$(echo -e "${DIALOG_TEXT}")"
-      busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i 100 2>/dev/null || exit "${DOWNLOADER_CANCELLED_STATUS}"
-      busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "value" i "${CURRENT_PROGRESS}" 2>/dev/null || exit "${DOWNLOADER_CANCELLED_STATUS}"
-      busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "setLabelText" s "${ESCAPED_DIALOG_TEXT}" 2>/dev/null || exit "${DOWNLOADER_CANCELLED_STATUS}"
+    term::progress_dialog::update "${DIALOG_TEXT}" "${CURRENT_PROGRESS}" || exit "${DOWNLOADER_CANCELLED_STATUS}"
 
-      # Check for cancellation
-      local WAS_CANCELLED
-      WAS_CANCELLED="$(busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "wasCancelled" 2>/dev/null || echo "b true")"
-
-      if [[ "${WAS_CANCELLED}" == "b true" ]]; then
-        exit "${DOWNLOADER_CANCELLED_STATUS}"
-      fi
-    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      echo "${CURRENT_PROGRESS}"
-      echo "# ${DIALOG_TEXT}"
+    if term::progress_dialog::was_cancelled; then
+      exit "${DOWNLOADER_CANCELLED_STATUS}"
     fi
-  done | {
-    if [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      zenity --progress --percentage=0 --text="Starting download..." --time-remaining --auto-close 2>/dev/null
-    else
-      cat - >/dev/null
-    fi
-  }
+  done | term::progress_dialog::sink "Starting download..." --percentage=0 --time-remaining
 
   local PIPE_STATUSES=("${PIPESTATUS[@]}")
   local TRANSFER_STATUS="${PIPE_STATUSES[0]}"
 
-  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-    busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
-  fi
+  term::progress_dialog::close
 
   # The transfer was interrupted by the user cancelling the kdialog or zenity progress dialog
   if [[ "${TRANSFER_STATUS}" -ne 0 ]] &&
