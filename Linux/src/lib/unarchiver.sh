@@ -34,11 +34,11 @@ unarchiver::unarchive_file() {
 
   local UNARCHIVE_PROGRESS
 
-  local KDIALOG_DBUS_ADDRESS=()
+  term::progress_dialog::open "Extracting ${ITEM_NAME}..."
 
-  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-    read -ra KDIALOG_DBUS_ADDRESS < <(kdialog --title "${CURRENT_STEP_NAME}" --progressbar "Extracting ${ITEM_NAME}..." 0 2>/dev/null)
-    busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "showCancelButton" b "false" 2>/dev/null || true
+  local UNARCHIVE_ZENITY_ARGS=(--percentage=0 --time-remaining)
+  if [[ "${IS_TARBALL}" == "y" ]]; then
+    UNARCHIVE_ZENITY_ARGS=(--pulsate)
   fi
 
   helper::progress::make_consistant __unarchiver::unarchive_file_with_progress "${ARCHIVE_PATH}" "${TARGET_PATH}" "${IGNORE_PATTERNS_VAR_NAME}" "${IGNORE_PATTERNS_RECURSIVE_VAR_NAME}" |
@@ -46,9 +46,7 @@ unarchiver::unarchive_file() {
       if [[ -z "${UNARCHIVE_PROGRESS}" ]]; then
         term::step::progress "" >&6
 
-        if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-          busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i 0 2>/dev/null || true
-        fi
+        term::progress_dialog::pulse || true
         continue
       fi
 
@@ -61,48 +59,21 @@ unarchiver::unarchive_file() {
 
       local DIALOG_TEXT="Extracting ${ITEM_NAME} (${PROGRESS_TEXT})"
 
-      if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-        local ESCAPED_DIALOG_TEXT
-        ESCAPED_DIALOG_TEXT="$(echo -e "${DIALOG_TEXT}")"
-
-        if [[ "${IS_TARBALL}" == "n" ]]; then
-          busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "maximum" i 100 2>/dev/null || true
-          busctl --user set-property "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "value" i "${UNARCHIVE_PROGRESS}" 2>/dev/null || true
-        fi
-
-        busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "setLabelText" s "${ESCAPED_DIALOG_TEXT}" 2>/dev/null || true
-      elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-        if [[ "${IS_TARBALL}" == "n" ]]; then
-          echo "${UNARCHIVE_PROGRESS}"
-        fi
-
-        echo "# ${DIALOG_TEXT}"
-      fi
-    done | {
-    if [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
+      # A tarball has no percentage, only the label changes
       if [[ "${IS_TARBALL}" == "n" ]]; then
-        zenity --progress --percentage=0 --text="Extracting ${ITEM_NAME}..." --no-cancel --time-remaining --auto-close 2>/dev/null
+        term::progress_dialog::update "${DIALOG_TEXT}" "${UNARCHIVE_PROGRESS}" || true
       else
-        zenity --progress --pulsate --text="Extracting ${ITEM_NAME}..." --no-cancel --auto-close 2>/dev/null
+        term::progress_dialog::update "${DIALOG_TEXT}" || true
       fi
-    else
-      cat - >/dev/null
-    fi
-  }
+    done | term::progress_dialog::sink "Extracting ${ITEM_NAME}..." --no-cancel "${UNARCHIVE_ZENITY_ARGS[@]}"
 
   local UNARCHIVE_STATUS="${PIPESTATUS[0]}"
 
-  if [[ "${UNARCHIVE_STATUS}" -ne 0 ]]; then
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
-    fi
+  term::progress_dialog::close
 
+  if [[ "${UNARCHIVE_STATUS}" -ne 0 ]]; then
     term::step::failed
     return "${UNARCHIVE_STATUS}"
-  fi
-
-  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-    busctl --user call "${KDIALOG_DBUS_ADDRESS[@]}" "org.kde.kdialog.ProgressDialog" "close" 2>/dev/null || true
   fi
 
   term::step::complete
