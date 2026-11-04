@@ -488,6 +488,46 @@ installer::entrypoint() {
     fi
   }
 
+  # Asks a yes/no question in a dialog, the answer is the exit status. Only meant for the GUI modes, the
+  # callers handle the terminal. Usage: term::dialog::yesno TEXT [TITLE] [WIDTH]
+  term::dialog::yesno() {
+    local DIALOG_TEXT="${1:-}"
+    local DIALOG_TITLE="${2:-}"
+    local DIALOG_WIDTH="${3:-}"
+
+    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
+      local KDIALOG_ARGS=(--yesno "${DIALOG_TEXT}")
+      [[ -z "${DIALOG_TITLE}" ]] || KDIALOG_ARGS=(--title "${DIALOG_TITLE}" "${KDIALOG_ARGS[@]}")
+      kdialog "${KDIALOG_ARGS[@]}" &>/dev/null
+    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
+      local ZENITY_ARGS=(--question --no-markup)
+      [[ -z "${DIALOG_TITLE}" ]] || ZENITY_ARGS+=("--title=${DIALOG_TITLE}")
+      [[ -z "${DIALOG_WIDTH}" ]] || ZENITY_ARGS+=("--width=${DIALOG_WIDTH}")
+      zenity "${ZENITY_ARGS[@]}" "--text=${DIALOG_TEXT}" &>/dev/null
+    else
+      return 1
+    fi
+  }
+
+  # Shows a message in a dialog, and does nothing in terminal mode. A dialog that cannot be shown is not an
+  # error. Usage: term::dialog::msgbox TEXT [TITLE] [WIDTH]
+  term::dialog::msgbox() {
+    local DIALOG_TEXT="${1:-}"
+    local DIALOG_TITLE="${2:-}"
+    local DIALOG_WIDTH="${3:-}"
+
+    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
+      local KDIALOG_ARGS=(--msgbox "${DIALOG_TEXT}")
+      [[ -z "${DIALOG_TITLE}" ]] || KDIALOG_ARGS=(--title "${DIALOG_TITLE}" "${KDIALOG_ARGS[@]}")
+      kdialog "${KDIALOG_ARGS[@]}" &>/dev/null || true
+    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
+      local ZENITY_ARGS=(--info --no-markup)
+      [[ -z "${DIALOG_TITLE}" ]] || ZENITY_ARGS+=("--title=${DIALOG_TITLE}")
+      [[ -z "${DIALOG_WIDTH}" ]] || ZENITY_ARGS+=("--width=${DIALOG_WIDTH}")
+      zenity "${ZENITY_ARGS[@]}" "--text=${DIALOG_TEXT}" &>/dev/null || true
+    fi
+  }
+
   xdgdirs::get_user_dir() {
     local USER_DIR_NAME="${1}"
 
@@ -2134,24 +2174,16 @@ installer::entrypoint() {
 
 Do you want to continue?"
 
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      kdialog --title "Uninstall ${PRODUCT_NAME}" --yesno "${DIALOG_TEXT}" &>/dev/null
-    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      zenity --question --no-markup --title="Uninstall ${PRODUCT_NAME}" --width=500 "--text=${DIALOG_TEXT}" &>/dev/null
-    else
+    if [[ "${_arg_ui_mode:-none}" == "none" ]]; then
       echo
       term::yesno "Do you want to continue?"
+    else
+      term::dialog::yesno "${DIALOG_TEXT}" "Uninstall ${PRODUCT_NAME}" 500
     fi
   }
 
   __step::uninstall::notify_finished() {
-    local DIALOG_TEXT="${PRODUCT_NAME} has been uninstalled."
-
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      kdialog --msgbox "${DIALOG_TEXT}" &>/dev/null || true
-    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      zenity --info --no-markup --width=400 "--text=${DIALOG_TEXT}" &>/dev/null || true
-    fi
+    term::dialog::msgbox "${PRODUCT_NAME} has been uninstalled." "" 400
   }
 
   # Both folders are compared once resolved, as the home folder or the data folder can be behind a symbolic link
@@ -3562,23 +3594,7 @@ EOFLAUNCHER
     term::step::new "${STEP_NAME}"
 
     if [[ "${_arg_ui_mode:-none}" != "none" ]] && [[ "${APPLICATION_ENTRY_HANDLING_MODE}" == "prompt" ]]; then
-      local DIALOG_ARGS=()
-
-      if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-        DIALOG_ARGS=(
-          kdialog
-          --yesno
-          "${STEP_PROMPT}"
-        )
-      elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-        DIALOG_ARGS=(
-          zenity
-          --question
-          "--text=${STEP_PROMPT}"
-        )
-      fi
-
-      if ! "${DIALOG_ARGS[@]}" &>/dev/null; then
+      if ! term::dialog::yesno "${STEP_PROMPT}"; then
         term::step::skipped "SKIPPED: User opted out"
         return 0
       fi
@@ -3845,26 +3861,7 @@ You can launch the game by running:
   ${DESTINATION_HOMIFIED}/System${UE_SYSTEM_FOLDER_SUFFIX:-}/${MAIN_BINARY_NAME}${ARCHITECTURE_BINARY_SUFFIX}
 """
 
-    local DIALOG_ARGS=()
-
-    if [[ "${_arg_ui_mode:-none}" == "none" ]]; then
-      return 0
-    elif [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      DIALOG_ARGS=(
-        kdialog
-        --msgbox
-        "${DIALOG_TEXT}"
-      )
-    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      DIALOG_ARGS=(
-        zenity
-        --info
-        --width=400
-        "--text=${DIALOG_TEXT}"
-      )
-    fi
-
-    "${DIALOG_ARGS[@]}" &>/dev/null || true
+    term::dialog::msgbox "${DIALOG_TEXT}" "" 400
   }
   step::notify_install_finished
 }

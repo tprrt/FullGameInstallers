@@ -280,6 +280,46 @@ term::error_with_dialog() {
   fi
 }
 
+# Asks a yes/no question in a dialog, the answer is the exit status. Only meant for the GUI modes, the
+# callers handle the terminal. Usage: term::dialog::yesno TEXT [TITLE] [WIDTH]
+term::dialog::yesno() {
+  local DIALOG_TEXT="${1:-}"
+  local DIALOG_TITLE="${2:-}"
+  local DIALOG_WIDTH="${3:-}"
+
+  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
+    local KDIALOG_ARGS=(--yesno "${DIALOG_TEXT}")
+    [[ -z "${DIALOG_TITLE}" ]] || KDIALOG_ARGS=(--title "${DIALOG_TITLE}" "${KDIALOG_ARGS[@]}")
+    kdialog "${KDIALOG_ARGS[@]}" &>/dev/null
+  elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
+    local ZENITY_ARGS=(--question --no-markup)
+    [[ -z "${DIALOG_TITLE}" ]] || ZENITY_ARGS+=("--title=${DIALOG_TITLE}")
+    [[ -z "${DIALOG_WIDTH}" ]] || ZENITY_ARGS+=("--width=${DIALOG_WIDTH}")
+    zenity "${ZENITY_ARGS[@]}" "--text=${DIALOG_TEXT}" &>/dev/null
+  else
+    return 1
+  fi
+}
+
+# Shows a message in a dialog, and does nothing in terminal mode. A dialog that cannot be shown is not an
+# error. Usage: term::dialog::msgbox TEXT [TITLE] [WIDTH]
+term::dialog::msgbox() {
+  local DIALOG_TEXT="${1:-}"
+  local DIALOG_TITLE="${2:-}"
+  local DIALOG_WIDTH="${3:-}"
+
+  if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
+    local KDIALOG_ARGS=(--msgbox "${DIALOG_TEXT}")
+    [[ -z "${DIALOG_TITLE}" ]] || KDIALOG_ARGS=(--title "${DIALOG_TITLE}" "${KDIALOG_ARGS[@]}")
+    kdialog "${KDIALOG_ARGS[@]}" &>/dev/null || true
+  elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
+    local ZENITY_ARGS=(--info --no-markup)
+    [[ -z "${DIALOG_TITLE}" ]] || ZENITY_ARGS+=("--title=${DIALOG_TITLE}")
+    [[ -z "${DIALOG_WIDTH}" ]] || ZENITY_ARGS+=("--width=${DIALOG_WIDTH}")
+    zenity "${ZENITY_ARGS[@]}" "--text=${DIALOG_TEXT}" &>/dev/null || true
+  fi
+}
+
 xdgdirs::get_user_dir() {
   local USER_DIR_NAME="${1}"
 

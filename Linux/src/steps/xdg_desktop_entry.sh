@@ -47,23 +47,7 @@ step::xdg_desktop_entry() {
   term::step::new "${STEP_NAME}"
 
   if [[ "${_arg_ui_mode:-none}" != "none" ]] && [[ "${APPLICATION_ENTRY_HANDLING_MODE}" == "prompt" ]]; then
-    local DIALOG_ARGS=()
-
-    if [[ "${_arg_ui_mode:-none}" == "kdialog" ]]; then
-      DIALOG_ARGS=(
-        kdialog
-        --yesno
-        "${STEP_PROMPT}"
-      )
-    elif [[ "${_arg_ui_mode:-none}" == "zenity" ]]; then
-      DIALOG_ARGS=(
-        zenity
-        --question
-        "--text=${STEP_PROMPT}"
-      )
-    fi
-
-    if ! "${DIALOG_ARGS[@]}" &>/dev/null; then
+    if ! term::dialog::yesno "${STEP_PROMPT}"; then
       term::step::skipped "SKIPPED: User opted out"
       return 0
     fi
